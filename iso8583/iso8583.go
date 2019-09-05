@@ -26,7 +26,7 @@ const (
 )
 
 const (
-	ISO8583_HEADER_LEN = 2
+	ISO8583_HEADER_LEN = 4
 	ISO8583_BITMAP_LEN = 8
 )
 
@@ -56,10 +56,16 @@ type ProtoStruct struct {
 
 func (pt *ProtoStruct) packbit(bitmap *Bitmap, num uint) uint64 {
 	index, pos := num/8, num%8
-	if index == 8 {
-		index = 7
+	logger.Debugf("bit: %d index: %d pos: %d", num, index, pos)
+	if index != 0 {
+		index = index
 	}
-	bitmap.Data[index] |= 0x01 << pos
+
+	if pos != 0 {
+		pos = pos - 1
+	}
+	//bitmap.Data[index] |= 0x01 << pos
+	bitmap.Data[index] |= 0x80 >> pos
 	return 0
 }
 
@@ -123,12 +129,44 @@ func (pt *ProtoStruct) packVarlen(len int, tv reflect.StructField) (string, erro
 	return "", nil
 }
 
-/*func (pt *ProtoStruct) packDomain(s []byte, len int, tv reflect.StructField) ([]byte, error) {
+func (pt *ProtoStruct) packDomain(s string, tv reflect.StructField) ([]byte, error) {
+	b := []byte{}
+	len := len(s)
 	dtype := pt.getDtype(tv)
-	if dtype == DATA_TYPE_BC {
-
+	if dtype == DATA_TYPE_BCD {
+		num := len % 2
+		//补0, 转BCD
+		bcd := []byte{}
+		bcd = append(bcd, s...)
+		for i := 0; i < num; i++ {
+			bcd = append(bcd, "0"...)
+		}
+		b, _ = hex.DecodeString(string(bcd))
+	} else {
+		b = append(b, s...)
 	}
-}*/
+	logger.Debugf("==b: %X", b)
+	ltype := pt.getLenType(tv)
+	switch ltype {
+	case FIXEDLENGTH:
+		/*fixlen := pt.getTagFixedLen(tv)
+		if len != fixlen {
+			return "", errors.New(fmt.Sprintf("pack fixlenth data error %d!=%d", fixlen, len))
+		}*/
+		return b, nil
+	case VARIABLELEN2:
+		slen := fmt.Sprintf("%02d", len)
+		blen, _ := hex.DecodeString(slen)
+		blen = append(blen, b...)
+		return blen, nil
+	case VARIABLELEN3:
+		slen := fmt.Sprintf("%04d", len)
+		blen, _ := hex.DecodeString(slen)
+		blen = append(blen, b...)
+		return blen, nil
+	}
+	return nil, errors.New("not support")
+}
 
 func (pt *ProtoStruct) hasDomain(domain uint64, bitmap *Bitmap) bool {
 	index, pos := domain/8, (8 - domain%8)
@@ -144,24 +182,21 @@ func (pt *ProtoStruct) hasDomain(domain uint64, bitmap *Bitmap) bool {
 		return true
 	}
 	return false
-	/*var check uint64
-	check = 0x01
-	check = check << (bit - 1)
-
-	if domain&check != 0x0 {
-		return true
-	}
-	return false*/
 }
 
 func (pt *ProtoStruct) Setbit(bitmap *Bitmap, tv reflect.StructField) error {
 	nbit := pt.getTagbit(tv)
 	pt.packbit(bitmap, uint(nbit))
-	/*buf := make([]byte, 8)
-	//binary.BigEndian.PutUint64(buf, *bitmap)
-	binary.LittleEndian.PutUint64(buf, *bitmap)*/
 	logger.Debugf("bitmap: %X", bitmap.Data)
 	return nil
+}
+
+func (pt *ProtoStruct) PackMsgType(s string) ([]byte, error) {
+	if len(s) != ISO8583_HEADER_LEN {
+		logger.Warnf("pack header error")
+		return nil, errors.New("pack msg type error")
+	}
+	return hex.DecodeString(s)
 }
 
 func (pt *ProtoStruct) Pack(header string) ([]byte, error) {
@@ -170,13 +205,18 @@ func (pt *ProtoStruct) Pack(header string) ([]byte, error) {
 	//var bitmap uint64
 	//bitmap = 0
 	bitmap := Bitmap{}
-	bitmap.Data = make([]byte, 64)
+	bitmap.Data = make([]byte, 8)
 
-	if len(header) != ISO8583_HEADER_LEN {
+	/*if len(header) != ISO8583_HEADER_LEN {
 		logger.Warnf("pack header error")
 		return data, errors.New("pack header error")
+	}*/
+	msg_type, err := pt.PackMsgType(header)
+	if err != nil {
+		logger.Warnf("pack msg type err: %s", err.Error())
+		return nil, err
 	}
-	data = append(data, header...)
+	data = append(data, msg_type...)
 	v_stru := reflect.ValueOf(pt).Elem()
 	count := v_stru.NumField()
 	logger.Debugf("count=%d", count)
@@ -192,14 +232,16 @@ func (pt *ProtoStruct) Pack(header string) ([]byte, error) {
 			if s != "" {
 				//pt.Setbit(&bitmap, t_item)
 				pt.Setbit(&bitmap, t_item)
-				slen, err := pt.packVarlen(len(s), t_item)
-				logger.Debugf("reflect string slen=%s", slen)
+				//slen, err := pt.packVarlen(len(s), t_item)
+				item, err := pt.packDomain(s, t_item)
+				//logger.Debugf("reflect string slen=%s", slen)
 				if err != nil {
 					logger.Warnf("pack %d bit domain %s", nbit, err.Error())
 					return b, err
 				}
-				b = append(b, slen...)
-				b = append(b, s...)
+				b = append(b, item...)
+				//b = append(b, slen...)
+				//b = append(b, s...)
 			} else {
 				logger.Debugf("i=%d|nbit=%d have no data", i, nbit)
 				continue
@@ -234,23 +276,26 @@ func (pt *ProtoStruct) setDomain(b []byte, v reflect.Value, t reflect.StructFiel
 }
 
 func (pt *ProtoStruct) unpackLen(bit uint64, b []byte, dlen_type int, start *int, unparsed *int) (int, int, error) {
-
 	switch dlen_type {
 	case VARIABLELEN2:
 		if *unparsed < 2 {
 			return -1, -1, errors.New(fmt.Sprintf("domain %d data error", bit))
 		}
+		//压缩BCD后一个字节
 		s := *start
-		e := *start + 2
-		slen := string(b[s:e])
-		len, err := strconv.Atoi(slen)
+		e := *start + 1
+		slen := b[s:e]
+		xlen := hex.EncodeToString(slen)
+		len, err := strconv.Atoi(xlen)
 		if err != nil {
 			logger.Debugf("domain %d parse len error", err.Error())
 			return -1, -1, err
 		}
-		*start += 2
-		*unparsed -= 2
-		return len, len, nil
+		rlen := len
+		len = (len + len%2)
+		*start += 1
+		*unparsed -= 1
+		return len, rlen, nil
 	case VARIABLELEN3:
 		//压缩BCD后压成两个字节
 		s := *start
@@ -302,12 +347,13 @@ func (pt *ProtoStruct) unpackVarDomain(bit uint64, b []byte, dlen_type int, v re
 }
 
 func (pt *ProtoStruct) unpackHeader(b []byte, start *int, unparsed *int) ([]byte, error) {
-	if *unparsed < ISO8583_HEADER_LEN {
+	xlen := ISO8583_HEADER_LEN / 2
+	if *unparsed < xlen {
 		return nil, errors.New("unpack header error")
 	}
-	header := b[*start:ISO8583_HEADER_LEN]
-	*start += ISO8583_HEADER_LEN
-	*unparsed -= ISO8583_HEADER_LEN
+	header := b[*start:xlen]
+	*start += xlen
+	*unparsed -= xlen
 
 	return header, nil
 }
@@ -321,8 +367,6 @@ func (pt *ProtoStruct) unpackBitmap(b []byte, start *int, unparsed *int) (*Bitma
 	logger.Debugf("bitmap: %X", b_bitmap)
 	bitmap := Bitmap{}
 	bitmap.Data = b_bitmap
-	//bitmap := binary.LittleEndian.Uint64(b_bitmap)
-	//bitmap := binary.BigEndian.Uint64(b_bitmap)
 	logger.Debugf("%X", bitmap)
 	*start += ISO8583_BITMAP_LEN
 	*unparsed -= ISO8583_BITMAP_LEN
@@ -332,9 +376,18 @@ func (pt *ProtoStruct) unpackBitmap(b []byte, start *int, unparsed *int) (*Bitma
 func (pt *ProtoStruct) unpackDomain(bit uint64, b []byte, dlen_type int, v reflect.Value, t reflect.StructField, start *int, unparsed *int) error {
 	len := pt.getTagFixedLen(t)
 	logger.Debugf("parse domain %d struct tag lentype: %d len: %d unparsed: %d", bit, dlen_type, len, *unparsed)
-	if len > *unparsed {
+	dtype := pt.getDtype(t)
+	if dtype == DATA_TYPE_BCD {
+		if len/2 > *unparsed {
+			return errors.New(fmt.Sprintf("domain %d bcd data error", bit))
+		}
+	} else if len > *unparsed {
 		return errors.New(fmt.Sprintf("domain %d data error", bit))
 	}
+
+	/*if len > *unparsed {
+		return errors.New(fmt.Sprintf("domain %d data error", bit))
+	}*/
 
 	logger.Debugf("parsed: %X", b[*start:])
 	switch dlen_type {

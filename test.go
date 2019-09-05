@@ -67,6 +67,40 @@ func parseEx() {
 
 }
 
+func test4() {
+	//bcd8583 := "08000000000000C0001030303030303039323031333336323637303131303030310011000000013520"
+	bcd8583 := "08000000000000C0001030303030303039323031333336323637303131303030310011000000013520"
+	s8583, _ := hex.DecodeString(bcd8583)
+	ups := iso8583.ProtoStruct{}
+	msg_type, err := ups.Unpack([]byte(s8583))
+	if err == nil {
+		logger.Debugf("msg_type: %s v: %v", msg_type, ups)
+		logger.Debugf("self_domain: %X", ups.SelfDomain)
+		logger.Debugf("mchntid: %X", ups.MchntId)
+	}
+}
+
+func test5() {
+	a := 128
+	s := fmt.Sprintf("%04d", a)
+	logger.Debugf("s: %s", s)
+
+	cbcd, _ := hex.DecodeString(s)
+	logger.Debugf("bcd: %v", cbcd)
+}
+
+func test6() {
+	ups := iso8583.ProtoStruct{
+		Tid:        "00000092",
+		MchntId:    "013362670110001",
+		SelfDomain: "00000001352",
+	}
+	b, err := ups.Pack("0800")
+	if err == nil {
+		logger.Debugf("b: %X", b)
+	}
+}
+
 func getDate() (string, string) {
 	_, month, day := time.Now().Date()
 	hour := time.Now().Hour()
@@ -170,8 +204,11 @@ func main() {
 		return
 	}
 	//TestGetRsaPubkey()
-	parseEx()
+	//parseEx()
 	//test()
 	//test2()
 	//testLittleEndian()
+	//test4()
+	//test5()
+	test6()
 }
