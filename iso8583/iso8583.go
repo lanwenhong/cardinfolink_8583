@@ -46,6 +46,7 @@ type ProtoStruct struct {
 	CardDate     string `bit:"13" lentype:"0" len:"4" dtype:"0" l_align:"n", r_align:"n",padding:""`
 	SearchNo     string `bit:"37" lentype:"0" len:"12" dtype:"0" l_align:"n", r_align:"n",padding:""`
 	RetCd        string `bit:"39" lentype:"0" len:"2" dtype:"0" l_align:"n", r_align:"n",padding:""`
+	XXX          string `bit:"40" lentype:"0" len:"8" dtype:"1" l_align:"n", r_align:"n",padding:""`
 	Tid          string `bit:"41" lentype:"0" len:"8" dtype:"1" l_align:"n", r_align:"n",padding:""`
 	MchntId      string `bit:"42" lentype:"0" len:"15" dtype:"1" l_align:"n", r_align:"n",padding:""`
 	SelfDomain   string `bit:"60" lentype:"2" len:"11" dtype:"0" l_align:"n", r_align:"n",padding:""`
@@ -59,12 +60,17 @@ func (pt *ProtoStruct) packbit(bitmap *Bitmap, num uint) uint64 {
 	logger.Debugf("bit: %d index: %d pos: %d", num, index, pos)
 	if index != 0 {
 		index = index
+		//8， 16， 24, 32，40, 64bit,字节便宜减1
+		if pos == 0 {
+			index = index - 1
+		}
 	}
 
 	if pos != 0 {
 		pos = pos - 1
+	} else if pos == 0 {
+		pos = 7
 	}
-	//bitmap.Data[index] |= 0x01 << pos
 	bitmap.Data[index] |= 0x80 >> pos
 	return 0
 }

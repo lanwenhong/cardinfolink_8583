@@ -94,6 +94,7 @@ func test6() {
 		Tid:        "00000092",
 		MchntId:    "013362670110001",
 		SelfDomain: "00000001352",
+		XXX:        "00000000",
 	}
 	b, err := ups.Pack("0800")
 	if err == nil {
