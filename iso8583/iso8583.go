@@ -46,7 +46,6 @@ type ProtoStruct struct {
 	CardDate     string `bit:"13" lentype:"0" len:"4" dtype:"0" l_align:"n", r_align:"n",padding:""`
 	SearchNo     string `bit:"37" lentype:"0" len:"12" dtype:"0" l_align:"n", r_align:"n",padding:""`
 	RetCd        string `bit:"39" lentype:"0" len:"2" dtype:"0" l_align:"n", r_align:"n",padding:""`
-	XXX          string `bit:"40" lentype:"0" len:"8" dtype:"1" l_align:"n", r_align:"n",padding:""`
 	Tid          string `bit:"41" lentype:"0" len:"8" dtype:"1" l_align:"n", r_align:"n",padding:""`
 	MchntId      string `bit:"42" lentype:"0" len:"15" dtype:"1" l_align:"n", r_align:"n",padding:""`
 	SelfDomain   string `bit:"60" lentype:"2" len:"11" dtype:"0" l_align:"n", r_align:"n",padding:""`
@@ -208,15 +207,9 @@ func (pt *ProtoStruct) PackMsgType(s string) ([]byte, error) {
 func (pt *ProtoStruct) Pack(header string) ([]byte, error) {
 	b := []byte{}
 	data := []byte{}
-	//var bitmap uint64
-	//bitmap = 0
 	bitmap := Bitmap{}
 	bitmap.Data = make([]byte, 8)
 
-	/*if len(header) != ISO8583_HEADER_LEN {
-		logger.Warnf("pack header error")
-		return data, errors.New("pack header error")
-	}*/
 	msg_type, err := pt.PackMsgType(header)
 	if err != nil {
 		logger.Warnf("pack msg type err: %s", err.Error())
@@ -236,18 +229,13 @@ func (pt *ProtoStruct) Pack(header string) ([]byte, error) {
 			s := item.Interface().(string)
 			logger.Debugf("s: %s", s)
 			if s != "" {
-				//pt.Setbit(&bitmap, t_item)
 				pt.Setbit(&bitmap, t_item)
-				//slen, err := pt.packVarlen(len(s), t_item)
 				item, err := pt.packDomain(s, t_item)
-				//logger.Debugf("reflect string slen=%s", slen)
 				if err != nil {
 					logger.Warnf("pack %d bit domain %s", nbit, err.Error())
 					return b, err
 				}
 				b = append(b, item...)
-				//b = append(b, slen...)
-				//b = append(b, s...)
 			} else {
 				logger.Debugf("i=%d|nbit=%d have no data", i, nbit)
 				continue
