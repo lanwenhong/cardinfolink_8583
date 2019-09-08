@@ -69,7 +69,9 @@ func parseEx() {
 
 func test4() {
 	//bcd8583 := "08000000000000C0001030303030303039323031333336323637303131303030310011000000013520"
-	bcd8583 := "08000000000000C0001030303030303039323031333336323637303131303030310011000000013520"
+	//bcd8583 := "08000000000000C0001030303030303039323031333336323637303131303030310011000000013520"
+	bcd8583 := "0810001800000AC000101949560906393530353139303639383037343030303030303030313031333336323637303131303030310011000000013520"
+
 	s8583, _ := hex.DecodeString(bcd8583)
 	ups := iso8583.ProtoStruct{}
 	msg_type, err := ups.Unpack([]byte(s8583))
@@ -128,37 +130,42 @@ func TestGetRsaPubkey() {
 	logger.Debugf("md: %s hms: %s", md, hms)
 	tpdu_header := buildHeader()
 	ps := iso8583.ProtoStruct{
-		CardDatetime: hms,
-		CardDate:     md,
-		Tid:          "30131990",
-		MchntId:      "013102258120001",
-		SelfDomain:   "00000001352",
+		//CardDatetime: hms,
+		//CardDate:     md,
+		Tid:        "00000001",
+		MchntId:    "013362670110001",
+		SelfDomain: "00000001352",
 	}
 	b, err := ps.Pack("0800")
 	if err != nil {
 		logger.Warnf("pack err: %s", err.Error())
 	}
 
-	ups := iso8583.ProtoStruct{}
+	/*ups := iso8583.ProtoStruct{}
 	msg_type, err := ups.Unpack(b)
 	if err == nil {
 		logger.Debugf("msg_type: %s v: %v", msg_type, ups)
-	}
+	}*/
 
 	//logger.Debugf("%X", b)
-	sb := hex.EncodeToString(b)
-	logger.Debugf("%s", sb)
+	//sb := hex.EncodeToString(b)
+	//logger.Debugf("%s", sb)
+
 	tpdu_header = append(tpdu_header, b...)
 	blen := uint16(len(tpdu_header))
-	logger.Debugf("blen: %d", blen)
+	xlen := fmt.Sprintf("%x", blen)
+	logger.Debugf("blen: %x", xlen)
 
-	bsend := make([]byte, 2)
-	binary.BigEndian.PutUint16(bsend, blen)
-	logger.Debugf("%v", bsend)
+	//bsend := make([]byte, 2)
+	slen := fmt.Sprintf("%04X", blen)
+	logger.Debugf("slen: %s", slen)
+	bsend, _ := hex.DecodeString(slen)
+	//binary.BigEndian.PutUint16(bsend, blen)
+	logger.Debugf("%X", bsend)
 	bsend = append(bsend, tpdu_header...)
 
-	bcd := hex.EncodeToString(bsend)
-	logger.Debugf("bcd: %s", bcd)
+	//bcd := hex.EncodeToString(bsend)
+	logger.Debugf("bcd: %X", bsend)
 
 	err = network.Mconn.Write(bsend)
 	if err != nil {
@@ -171,6 +178,12 @@ func TestGetRsaPubkey() {
 		return
 	}
 	logger.Debugf("%X", echo)
+
+	ups := iso8583.ProtoStruct{}
+	msg_type, err := ups.Unpack(echo[11:])
+	if err == nil {
+		logger.Debugf("msg_type: %s v: %v", msg_type, ups)
+	}
 
 }
 
@@ -198,17 +211,20 @@ func main() {
 
 	logger.Debugf("go go go")
 	var err error
-	network.Mconn, err = network.NewMyconn("116.236.215.18:5711")
+	//network.Mconn, err = network.NewMyconn("116.236.215.18:5711")
+	//network.Mconn, err = network.NewMyconn("116.236.215.18:12164")
+	//network.Mconn, err = network.NewMyconn("116.236.215.18:10017")
+	network.Mconn, err = network.NewMyconn("116.236.215.18:5811")
 	if err != nil {
 		logger.Warnf("connet %s", err.Error())
 		return
 	}
-	//TestGetRsaPubkey()
+	TestGetRsaPubkey()
 	//parseEx()
 	//test()
 	//test2()
 	//testLittleEndian()
 	//test4()
 	//test5()
-	test6()
+	//test6()
 }

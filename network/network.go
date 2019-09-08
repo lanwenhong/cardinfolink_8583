@@ -2,9 +2,10 @@ package network
 
 import (
 	"bufio"
-	"encoding/binary"
+	"encoding/hex"
 	"git.qfpay.net/server/goqfpay/logger"
 	"net"
+	"strconv"
 	"time"
 )
 
@@ -27,8 +28,9 @@ func (mconn *Myconn) Read() ([]byte, error) {
 	pos := 0
 	var err error
 	for {
-		mconn.Conn.SetDeadline(time.Now().Add(time.Duration(int64(4000)) * time.Millisecond))
+		mconn.Conn.SetDeadline(time.Now().Add(time.Duration(int64(40000)) * time.Millisecond))
 		n, err := reader.Read(head[pos:2])
+		logger.Debugf("n: %d", n)
 		if err != nil {
 			logger.Debug("read head error: ", err.Error())
 			return nil, err
@@ -38,8 +40,16 @@ func (mconn *Myconn) Read() ([]byte, error) {
 			break
 		}
 	}
+	logger.Debugf("head: %X", head)
+	slen := hex.EncodeToString(head)
+	logger.Debugf("slen: %s", slen)
+	//shex := fmt.Sprintf("0x%s", slen)
+	blen, err := strconv.ParseUint(slen, 16, 32)
+	logger.Debugf("blen: %d", blen)
+
+	//blen := 52
 	//blen, err := strconv.Atoi(string(head))
-	blen := binary.BigEndian.Uint16(head)
+	//blen := binary.BigEndian.Uint16(head)
 	data := make([]byte, blen)
 	if err != nil {
 		logger.Debug("read head len parse error: ", err.Error())
@@ -49,8 +59,10 @@ func (mconn *Myconn) Read() ([]byte, error) {
 	for {
 		mconn.Conn.SetDeadline(time.Now().Add(time.Duration(int64(4000)) * time.Millisecond))
 		rlen, err := reader.Read(data[pos:blen])
+		logger.Debugf("rlen: %d", rlen)
 		if err != nil {
-			logger.Debug("read body error: ", err.Error())
+			logger.Debugf("read body error: %s", err.Error())
+			logger.Debugf("data: %X", data)
 			return nil, err
 		}
 		pos += rlen
