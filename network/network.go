@@ -30,7 +30,7 @@ func (mconn *Myconn) Read() ([]byte, error) {
 	for {
 		mconn.Conn.SetDeadline(time.Now().Add(time.Duration(int64(40000)) * time.Millisecond))
 		n, err := reader.Read(head[pos:2])
-		logger.Debugf("n: %d", n)
+		logger.Debugf("n: %X", n)
 		if err != nil {
 			logger.Debug("read head error: ", err.Error())
 			return nil, err

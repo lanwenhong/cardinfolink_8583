@@ -49,8 +49,9 @@ type ProtoStruct struct {
 	Tid          string `bit:"41" lentype:"0" len:"8" dtype:"1" l_align:"n", r_align:"n",padding:""`
 	MchntId      string `bit:"42" lentype:"0" len:"15" dtype:"1" l_align:"n", r_align:"n",padding:""`
 	SelfDomain   string `bit:"60" lentype:"2" len:"11" dtype:"0" l_align:"n", r_align:"n",padding:""`
-	TParam       string `bit:"62" lentype:"2" len:"17" dtype:"1" l_align:"n", r_align:"n",padding:""`
+	TParam       []byte `bit:"62" lentype:"2" len:"512" dtype:"1" l_align:"n", r_align:"n",padding:""`
 	Opcd         string `bit:"63" lentype:"2" len:"3" dtype:"1" l_align:"n", r_align:"n",padding:""`
+
 	//支付类
 }
 
@@ -132,6 +133,32 @@ func (pt *ProtoStruct) packVarlen(len int, tv reflect.StructField) (string, erro
 		return fmt.Sprintf("%03d", len), nil
 	}
 	return "", nil
+}
+
+func (pt *ProtoStruct) packDomainSlice(s []byte, tv reflect.StructField) ([]byte, error) {
+	//b := []byte{}
+	len := len(s)
+
+	logger.Debugf("===len: %d", len)
+	ltype := pt.getLenType(tv)
+	switch ltype {
+	case FIXEDLENGTH:
+		return s, nil
+
+	case VARIABLELEN2:
+		slen := fmt.Sprintf("%02d", len)
+		blen, _ := hex.DecodeString(slen)
+		blen = append(blen, s...)
+		return blen, nil
+
+	case VARIABLELEN3:
+		slen := fmt.Sprintf("%04d", len)
+		blen, _ := hex.DecodeString(slen)
+		blen = append(blen, s...)
+		return blen, nil
+	}
+	return nil, errors.New("not support")
+
 }
 
 func (pt *ProtoStruct) packDomain(s string, tv reflect.StructField) ([]byte, error) {
@@ -240,6 +267,20 @@ func (pt *ProtoStruct) Pack(header string) ([]byte, error) {
 				logger.Debugf("i=%d|nbit=%d have no data", i, nbit)
 				continue
 			}
+		case reflect.Slice:
+			bn := item.Interface().([]byte)
+			logger.Debugf("bn: %X", bn)
+			if bn != nil {
+				pt.Setbit(&bitmap, t_item)
+				item, err := pt.packDomainSlice(bn, t_item)
+				if err != nil {
+					logger.Warnf("pack %d bit domain %s", nbit, err.Error())
+					return b, err
+				}
+				logger.Debugf("item: %X", item)
+				b = append(b, item...)
+
+			}
 		default:
 			return data, errors.New("not support")
 		}
@@ -263,6 +304,8 @@ func (pt *ProtoStruct) setDomain(b []byte, v reflect.Value, t reflect.StructFiel
 			logger.Debugf("get domain: %X", b)
 			v.SetString(string(b))
 		}
+	case reflect.Slice:
+		v.SetBytes(b)
 	default:
 		return errors.New("not support")
 	}
@@ -323,21 +366,31 @@ func (pt *ProtoStruct) unpackVarDomain(bit uint64, b []byte, dlen_type int, v re
 	dtype := pt.getDtype(t)
 	if dtype == DATA_TYPE_BCD {
 		len = len / 2
-	}
-	logger.Debugf("===len: %d", len)
+		logger.Debugf("===len: %d unparsed %d", len, *unparsed)
 
-	if len > *unparsed {
-		return errors.New(fmt.Sprintf("domain %d data error", bit))
-	}
+		/*if len > *unparsed {
+			return errors.New(fmt.Sprintf("domain %d data error", bit))
+		}*/
 
-	ddata := b[*start : *start+len]
-	err := pt.setDomain(ddata, v, t, len, rlen)
-	if err != nil {
-		logger.Warnf("domain %d set error %s", bit, err.Error())
+		ddata := b[*start : *start+len]
+		err := pt.setDomain(ddata, v, t, len, rlen)
+		if err != nil {
+			logger.Warnf("domain %d set error %s", bit, err.Error())
+			return err
+		}
+		*start += len
+		*unparsed -= len
+	} else {
+		ddata := b[*start : *start+rlen]
+		err := pt.setDomain(ddata, v, t, len, rlen)
+		if err != nil {
+			logger.Warnf("domain %d set error %s", bit, err.Error())
+			return err
+		}
+		*start += rlen
+		*unparsed -= rlen
 	}
-	*start += len
-	*unparsed -= len
-	return err
+	return nil
 }
 
 func (pt *ProtoStruct) unpackHeader(b []byte, start *int, unparsed *int) ([]byte, error) {
@@ -371,11 +424,12 @@ func (pt *ProtoStruct) unpackDomain(bit uint64, b []byte, dlen_type int, v refle
 	len := pt.getTagFixedLen(t)
 	logger.Debugf("parse domain %d struct tag lentype: %d len: %d unparsed: %d", bit, dlen_type, len, *unparsed)
 	dtype := pt.getDtype(t)
+	ltype := pt.getLenType(t)
 	if dtype == DATA_TYPE_BCD {
 		if len/2 > *unparsed {
 			return errors.New(fmt.Sprintf("domain %d bcd data error", bit))
 		}
-	} else if len > *unparsed {
+	} else if ltype == FIXEDLENGTH && len > *unparsed {
 		return errors.New(fmt.Sprintf("domain %d data error", bit))
 	}
 
@@ -441,6 +495,7 @@ func (pt *ProtoStruct) Unpack(b []byte) (string, error) {
 		checkbit := uint64(i)
 		if pt.hasDomain(checkbit, bitmap) {
 			tlen := pt.getLenType(t_unpack[checkbit])
+			logger.Debugf("tlen: %d", tlen)
 			err := pt.unpackDomain(checkbit, b, tlen, v_unpack[checkbit], t_unpack[checkbit], &start, &unparsed)
 			if err != nil {
 				logger.Warnf("%s", err.Error())
