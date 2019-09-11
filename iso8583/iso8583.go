@@ -44,6 +44,7 @@ type ProtoStruct struct {
 	Syssn        string `bit:"11" lentype:"0" len:"6" dtype:"0" l_align:"n", r_align:"n",padding:""`
 	CardDatetime string `bit:"12" lentype:"0" len:"6" dtype:"0" l_align:"n", r_align:"n",padding:""`
 	CardDate     string `bit:"13" lentype:"0" len:"4" dtype:"0" l_align:"n", r_align:"n",padding:""`
+	AcceptorCd   string `bit:"32" lentype:"1" len:"11" dtype:"0" l_align:"n", r_align:"n",padding:""`
 	SearchNo     string `bit:"37" lentype:"0" len:"12" dtype:"1" l_align:"n", r_align:"n",padding:""`
 	RetCd        string `bit:"39" lentype:"0" len:"2" dtype:"1" l_align:"n", r_align:"n",padding:""`
 	Tid          string `bit:"41" lentype:"0" len:"8" dtype:"1" l_align:"n", r_align:"n",padding:""`
@@ -202,13 +203,17 @@ func (pt *ProtoStruct) packDomain(s string, tv reflect.StructField) ([]byte, err
 
 func (pt *ProtoStruct) hasDomain(domain uint64, bitmap *Bitmap) bool {
 	index, pos := domain/8, (8 - domain%8)
-	logger.Debugf("check bit %d index %d pos %d", domain, index, pos)
-	if index == 8 {
-		index = 7
+	//if index == 8 {
+	if domain%8 == 0 && index != 0 {
+		//index = 7
+		index -= 1
+		pos = 0
 	}
-	logger.Debugf("check byte %X", bitmap.Data[index])
+	logger.Debugf("check bit %d index %d pos %d", domain, index, pos)
+	logger.Debugf("check byte %02X", bitmap.Data[index])
 
 	bit := (bitmap.Data[index] >> pos) & 0x01
+	logger.Debugf("bit: %d", bit)
 
 	if bit == 1 {
 		return true
