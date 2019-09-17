@@ -40,20 +40,36 @@ type Bitmap struct {
 }
 
 type ProtoStruct struct {
-	//管理类
-	Syssn        string `bit:"11" lentype:"0" len:"6" dtype:"0" l_align:"n", r_align:"n",padding:""`
-	CardDatetime string `bit:"12" lentype:"0" len:"6" dtype:"0" l_align:"n", r_align:"n",padding:""`
-	CardDate     string `bit:"13" lentype:"0" len:"4" dtype:"0" l_align:"n", r_align:"n",padding:""`
-	AcceptorCd   string `bit:"32" lentype:"1" len:"11" dtype:"0" l_align:"n", r_align:"n",padding:""`
-	SearchNo     string `bit:"37" lentype:"0" len:"12" dtype:"1" l_align:"n", r_align:"n",padding:""`
-	RetCd        string `bit:"39" lentype:"0" len:"2" dtype:"1" l_align:"n", r_align:"n",padding:""`
-	Tid          string `bit:"41" lentype:"0" len:"8" dtype:"1" l_align:"n", r_align:"n",padding:""`
-	MchntId      string `bit:"42" lentype:"0" len:"15" dtype:"1" l_align:"n", r_align:"n",padding:""`
-	SelfDomain   string `bit:"60" lentype:"2" len:"11" dtype:"0" l_align:"n", r_align:"n",padding:""`
-	TParam       []byte `bit:"62" lentype:"2" len:"512" dtype:"1" l_align:"n", r_align:"n",padding:""`
-	Opcd         string `bit:"63" lentype:"2" len:"3" dtype:"1" l_align:"n", r_align:"n",padding:""`
+	CardNo              string `bit:"2" lentype:"1" len:"19" dtype:"0" l_align:"n", r_align:"n",padding:""` //主账号
+	TradeCd             string `bit:"3" lentype:"0" len:"6" dtype:"0" l_align:"n", r_align:"n",padding:""`  //交易处理码
+	Txamt               string `bit:"4" lentype:"0" len:"12" dtype:"0" l_align:"n", r_align:"n",padding:""` //交易金额
+	Syssn               string `bit:"11" lentype:"0" len:"6" dtype:"0" l_align:"n", r_align:"n",padding:""`
+	CardDatetime        string `bit:"12" lentype:"0" len:"6" dtype:"0" l_align:"n", r_align:"n",padding:""`
+	CardDate            string `bit:"13" lentype:"0" len:"4" dtype:"0" l_align:"n", r_align:"n",padding:""`
+	CardExpire          string `bit:"14" lentype:"0" len:"4" dtype:"0" l_align:"n", r_align:"n",padding:""` //卡有效期
+	ServiceInputCd      string `bit:"22" lentype:"0" len:"3" dtype:"0" l_align:"n", r_align:"n",padding:""` //服务店输入方式码
+	ServiceCondCd       string `bit:"25" lentype:"0" len:"2" dtype:"0" l_align:"n", r_align:"n",padding:""` //服务点条件码
+	CardPinCd           string `bit:"26" lentype:"0" len:"2" dtype:"0" l_align:"n", r_align:"n",padding:""` //服务点pin获取码
+	AcceptorCd          string `bit:"32" lentype:"1" len:"11" dtype:"0" l_align:"n", r_align:"n",padding:""`
+	TrackData2          string `bit:"35" lentype:"1" len:"37" dtype:"0" l_align:"n", r_align:"n",padding:""`  //2磁道
+	TrackData3          string `bit:"36" lentype:"2" len:"104" dtype:"0" l_align:"n", r_align:"n",padding:""` //3磁道
+	SearchNo            string `bit:"37" lentype:"0" len:"12" dtype:"1" l_align:"n", r_align:"n",padding:""`
+	RetCd               string `bit:"39" lentype:"0" len:"2" dtype:"1" l_align:"n", r_align:"n",padding:""`
+	Tid                 string `bit:"41" lentype:"0" len:"8" dtype:"1" l_align:"n", r_align:"n",padding:""`
+	MchntId             string `bit:"42" lentype:"0" len:"15" dtype:"1" l_align:"n", r_align:"n",padding:""`
+	AdditionalRtCd      string `bit:"44" lentype:"1" len:"25" dtype:"1" l_align:"n", r_align:"n",padding:""`
+	TradeSelfDomain     string `bit:"47" lentype:"2" len:"999" dtype:"1" l_align:"n", r_align:"n",padding:""`
+	CurrencyCd          string `bit:"49" lentype:"0" len:"3" dtype:"1" l_align:"n", r_align:"n",padding:""`
+	PeopleCurCd         string `bit:"51" lentype:"0" len:"3" dtype:"1" l_align:"n", r_align:"n",padding:""`
+	PeopleTagCd         []byte `bit:"52" lentype:"0" len:"8" dtype:"1" l_align:"n", r_align:"n",padding:""`
+	SafeCtrCd           string `bit:"53" lentype:"0" len:"16" dtype:"1" l_align:"n", r_align:"n",padding:""`
+	IccData             []byte `bit:"55" lentype:"2" len:"255" dtype:"1" l_align:"n", r_align:"n",padding:""`
+	AdditionalTradeInfo string `bit:"57" lentype:"2" len:"100" dtype:"1" l_align:"n", r_align:"n",padding:""`
 
-	//支付类
+	SelfDomain string `bit:"60" lentype:"2" len:"11" dtype:"0" l_align:"n", r_align:"n",padding:""`
+	TParam     []byte `bit:"62" lentype:"2" len:"512" dtype:"1" l_align:"n", r_align:"n",padding:""`
+	Opcd       string `bit:"63" lentype:"2" len:"63" dtype:"1" l_align:"n", r_align:"n",padding:""`
+	Mac        []byte `bit:"64" lentype:"0" len:"8" dtype:"1" l_align:"n", r_align:"n",padding:""`
 }
 
 func (pt *ProtoStruct) packbit(bitmap *Bitmap, num uint) uint64 {
@@ -303,8 +319,10 @@ func (pt *ProtoStruct) setDomain(b []byte, v reflect.Value, t reflect.StructFiel
 	case reflect.String:
 		dtype := pt.getDtype(t)
 		if dtype == DATA_TYPE_BCD {
+			//tlen := pt.getTagFixedLen(t)
 			sb := hex.EncodeToString(b)
 			v.SetString(sb[0:rlen])
+			//v.SetString(sb[0:tlen])
 		} else {
 			logger.Debugf("get domain: %X", b)
 			v.SetString(string(b))
@@ -364,6 +382,28 @@ func (pt *ProtoStruct) unpackLen(bit uint64, b []byte, dlen_type int, start *int
 
 	}
 	return -1, -1, errors.New(fmt.Sprintf("domain %d data error", bit))
+}
+func (pt *ProtoStruct) unpackFixDomain(bit uint64, b []byte, dlen_type int, v reflect.Value, t reflect.StructField, start *int, unparsed *int) error {
+	var len int = 0
+	tlen := pt.getTagFixedLen(t)
+	dtype := pt.getDtype(t)
+	if dtype == DATA_TYPE_BCD {
+		len = tlen/2 + tlen%2
+	} else {
+		len = tlen
+	}
+	logger.Debugf("===len: %d", len)
+	//获取定长长度
+	ddata := b[*start : *start+len]
+	err := pt.setDomain(ddata, v, t, len, tlen)
+	if err != nil {
+		logger.Warnf("parse %d data err %s", bit, err.Error())
+		return err
+	}
+	*start += len
+	*unparsed -= len
+	return nil
+
 }
 
 func (pt *ProtoStruct) unpackVarDomain(bit uint64, b []byte, dlen_type int, v reflect.Value, t reflect.StructField, start *int, unparsed *int) error {
@@ -445,9 +485,9 @@ func (pt *ProtoStruct) unpackDomain(bit uint64, b []byte, dlen_type int, v refle
 	logger.Debugf("parsed: %X", b[*start:])
 	switch dlen_type {
 	case FIXEDLENGTH:
-		dtype := pt.getDtype(t)
+		/*dtype := pt.getDtype(t)
 		if dtype == DATA_TYPE_BCD {
-			len = len / 2
+			len = len/2 + len%2
 		}
 		logger.Debugf("===len: %d", len)
 		//获取定长长度
@@ -459,7 +499,8 @@ func (pt *ProtoStruct) unpackDomain(bit uint64, b []byte, dlen_type int, v refle
 		}
 		*start += len
 		*unparsed -= len
-		return nil
+		return nil*/
+		return pt.unpackFixDomain(bit, b, dlen_type, v, t, start, unparsed)
 	case VARIABLELEN2:
 		return pt.unpackVarDomain(bit, b, dlen_type, v, t, start, unparsed)
 	case VARIABLELEN3:
