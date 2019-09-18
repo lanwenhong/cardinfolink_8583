@@ -58,18 +58,17 @@ type ProtoStruct struct {
 	Tid                 string `bit:"41" lentype:"0" len:"8" dtype:"1" l_align:"n", r_align:"n",padding:""`
 	MchntId             string `bit:"42" lentype:"0" len:"15" dtype:"1" l_align:"n", r_align:"n",padding:""`
 	AdditionalRtCd      string `bit:"44" lentype:"1" len:"25" dtype:"1" l_align:"n", r_align:"n",padding:""`
-	TradeSelfDomain     string `bit:"47" lentype:"2" len:"999" dtype:"1" l_align:"n", r_align:"n",padding:""`
+	TradeSelfDomain     []byte `bit:"47" lentype:"2" len:"999" dtype:"1" l_align:"n", r_align:"n",padding:""`
 	CurrencyCd          string `bit:"49" lentype:"0" len:"3" dtype:"1" l_align:"n", r_align:"n",padding:""`
 	PeopleCurCd         string `bit:"51" lentype:"0" len:"3" dtype:"1" l_align:"n", r_align:"n",padding:""`
 	PeopleTagCd         []byte `bit:"52" lentype:"0" len:"8" dtype:"1" l_align:"n", r_align:"n",padding:""`
 	SafeCtrCd           string `bit:"53" lentype:"0" len:"16" dtype:"1" l_align:"n", r_align:"n",padding:""`
 	IccData             []byte `bit:"55" lentype:"2" len:"255" dtype:"1" l_align:"n", r_align:"n",padding:""`
-	AdditionalTradeInfo string `bit:"57" lentype:"2" len:"100" dtype:"1" l_align:"n", r_align:"n",padding:""`
-
-	SelfDomain string `bit:"60" lentype:"2" len:"11" dtype:"0" l_align:"n", r_align:"n",padding:""`
-	TParam     []byte `bit:"62" lentype:"2" len:"512" dtype:"1" l_align:"n", r_align:"n",padding:""`
-	Opcd       string `bit:"63" lentype:"2" len:"63" dtype:"1" l_align:"n", r_align:"n",padding:""`
-	Mac        []byte `bit:"64" lentype:"0" len:"8" dtype:"1" l_align:"n", r_align:"n",padding:""`
+	AdditionalTradeInfo []byte `bit:"57" lentype:"2" len:"100" dtype:"1" l_align:"n", r_align:"n",padding:""`
+	SelfDomain          string `bit:"60" lentype:"2" len:"13" dtype:"0" l_align:"n", r_align:"n",padding:""`
+	TParam              []byte `bit:"62" lentype:"2" len:"512" dtype:"1" l_align:"n", r_align:"n",padding:""`
+	Opcd                string `bit:"63" lentype:"2" len:"63" dtype:"1" l_align:"n", r_align:"n",padding:""`
+	Mac                 []byte `bit:"64" lentype:"0" len:"8" dtype:"1" l_align:"n", r_align:"n",padding:""`
 }
 
 func (pt *ProtoStruct) packbit(bitmap *Bitmap, num uint) uint64 {

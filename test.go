@@ -98,10 +98,46 @@ func test8() {
 		logger.Debugf("msg_type: %s v: %v", msg_type, ups)
 		logger.Debugf("self_domain: %X", ups.SelfDomain)
 		logger.Debugf("mchntid: %X", ups.MchntId)
-		logger.Debugf("TParam: %X", ups.TParam)
+		logger.Debugf("AdditionalTradeInfo: %X", ups.AdditionalTradeInfo)
 	}
 	logger.Debugf("%s", ups.ServiceInputCd)
 	logger.Debugf("%X", ups.TradeSelfDomain)
+}
+
+func testDoTrade() {
+	md, hms := getDate()
+	logger.Debugf("md: %s hms: %s", md, hms)
+	//tpdu_header := buildHeader()
+	d47 := "5049303537030550333039390402303205103030303030323032334B31333937343306063030303031390708334633443033383408083932313020202020"
+	s47, _ := hex.DecodeString(d47)
+
+	d57 := "32313843323532303420202020202020202020"
+	s57, _ := hex.DecodeString(d57)
+
+	d64 := "4535304135363443"
+	s64, _ := hex.DecodeString(d64)
+	ps := iso8583.ProtoStruct{
+		TradeCd:             "000000",
+		Txamt:               "000000001000",
+		Syssn:               "000742",
+		CardExpire:          "1712",
+		ServiceInputCd:      "0220",
+		ServiceCondCd:       "00",
+		TrackData2:          "4761340000000019D171210114991787",
+		Tid:                 "00000664",
+		MchntId:             "000000000000666",
+		TradeSelfDomain:     s47,
+		CurrencyCd:          "156",
+		AdditionalTradeInfo: s57,
+		SelfDomain:          "2200024900050",
+		Mac:                 s64,
+	}
+	b, err := ps.Pack("0200")
+	if err != nil {
+		logger.Warnf("pack err: %s", err.Error())
+		return
+	}
+	logger.Debugf("b: %X", b)
 }
 
 func test4() {
@@ -444,6 +480,7 @@ func main() {
 	//test4()
 	//test5()
 	//test6()
-	test7()
-	//test8()
+	//test7()
+	test8()
+	//testDoTrade()
 }
