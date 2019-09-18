@@ -484,21 +484,6 @@ func (pt *ProtoStruct) unpackDomain(bit uint64, b []byte, dlen_type int, v refle
 	logger.Debugf("parsed: %X", b[*start:])
 	switch dlen_type {
 	case FIXEDLENGTH:
-		/*dtype := pt.getDtype(t)
-		if dtype == DATA_TYPE_BCD {
-			len = len/2 + len%2
-		}
-		logger.Debugf("===len: %d", len)
-		//获取定长长度
-		ddata := b[*start : *start+len]
-		err := pt.setDomain(ddata, v, t, len, len*2)
-		if err != nil {
-			logger.Warnf("parse %d data err %s", bit, err.Error())
-			return err
-		}
-		*start += len
-		*unparsed -= len
-		return nil*/
 		return pt.unpackFixDomain(bit, b, dlen_type, v, t, start, unparsed)
 	case VARIABLELEN2:
 		return pt.unpackVarDomain(bit, b, dlen_type, v, t, start, unparsed)
