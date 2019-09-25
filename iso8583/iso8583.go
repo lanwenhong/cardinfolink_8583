@@ -47,6 +47,7 @@ type ProtoStruct struct {
 	CardDatetime        string `bit:"12" lentype:"0" len:"6" dtype:"0" l_align:"n", r_align:"n",padding:""`
 	CardDate            string `bit:"13" lentype:"0" len:"4" dtype:"0" l_align:"n", r_align:"n",padding:""`
 	CardExpire          string `bit:"14" lentype:"0" len:"4" dtype:"0" l_align:"n", r_align:"n",padding:""` //卡有效期
+	AuditDate           string `bit:"15" lentype:"0" len:"4" dtype:"0" l_align:"n", r_align:"n",padding:""`
 	ServiceInputCd      string `bit:"22" lentype:"0" len:"3" dtype:"0" l_align:"n", r_align:"n",padding:""` //服务店输入方式码
 	ServiceCondCd       string `bit:"25" lentype:"0" len:"2" dtype:"0" l_align:"n", r_align:"n",padding:""` //服务点条件码
 	CardPinCd           string `bit:"26" lentype:"0" len:"2" dtype:"0" l_align:"n", r_align:"n",padding:""` //服务点pin获取码
@@ -54,6 +55,7 @@ type ProtoStruct struct {
 	TrackData2          string `bit:"35" lentype:"1" len:"37" dtype:"0" l_align:"n", r_align:"n",padding:""`  //2磁道
 	TrackData3          string `bit:"36" lentype:"2" len:"104" dtype:"0" l_align:"n", r_align:"n",padding:""` //3磁道
 	SearchNo            string `bit:"37" lentype:"0" len:"12" dtype:"1" l_align:"n", r_align:"n",padding:""`
+	AuthorizeCd         string `bit:"38" lentype:"0" len:"6" dtype:"1" l_align:"n", r_align:"n",padding:""`
 	RetCd               string `bit:"39" lentype:"0" len:"2" dtype:"1" l_align:"n", r_align:"n",padding:""`
 	Tid                 string `bit:"41" lentype:"0" len:"8" dtype:"1" l_align:"n", r_align:"n",padding:""`
 	MchntId             string `bit:"42" lentype:"0" len:"15" dtype:"1" l_align:"n", r_align:"n",padding:""`

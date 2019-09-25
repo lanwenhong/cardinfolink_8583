@@ -7,11 +7,13 @@ import (
 	"fmt"
 	"git.qfpay.net/server/cardinfolink/iso8583"
 	"git.qfpay.net/server/cardinfolink/network"
+	"git.qfpay.net/server/cardinfolink/safe"
 	"git.qfpay.net/server/cardinfolink/sconf"
 	"git.qfpay.net/server/goqfpay/logger"
 	"github.com/greenboxal/emv-kernel/tlv"
 	"os"
 	"runtime"
+	"strings"
 	"time"
 )
 
@@ -90,15 +92,19 @@ func test7() {
 }
 
 func test8() {
-	bcd8583 := "02003024048020C280910000000000000010000007421712022000324761340000000019D171210114991787303030303036363430303030303030303030303036363600625049303537030550333039390402303205103030303030323032334B313339373433060630303030313907083346334430333834080839323130202020203135360019323138433235323034202020202020202020200013220002490005004535304135363443"
+	//bcd8583 := "02003024048020C280910000000000000010000007421712022000324761340000000019D171210114991787303030303036363430303030303030303030303036363600625049303537030550333039390402303205103030303030323032334B313339373433060630303030313907083346334430333834080839323130202020203135360019323138433235323034202020202020202020200013220002490005004535304135363443"
+	//bcd8583 := "0210703E00810AD080121647613400000000190000000000000010000007421629400918171209180008950519003236313136323037333038354130303030303030303130313333363236373031313030303122303030303030303020202030303030303030302020203135360013220002490005000003202020"
+	//bcd8583 := "0210703E00810AD080121647613400000000190000000000000010000007421659350918171209180008950519003236313136353037333039344130303030303030303130313333363236373031313030303122303030303030303020202030303030303030302020203135360013220002490005000003202020"
+	bcd8583 := "02003024048020C280910000000000000010000007421712022000324761340000000019D171210114991787303030303030303130313333363236373031313030303100625049303537030550333039390402303205103030303030323032334B313339373433060630303030313907083346334430333834080839323130202020203135360019323138433235323034202020202020202020200013220002490005004332323533423633"
 	s8583, _ := hex.DecodeString(bcd8583)
 	ups := iso8583.ProtoStruct{}
 	msg_type, err := ups.Unpack([]byte(s8583))
 	if err == nil {
 		logger.Debugf("msg_type: %s v: %v", msg_type, ups)
-		logger.Debugf("self_domain: %X", ups.SelfDomain)
-		logger.Debugf("mchntid: %X", ups.MchntId)
-		logger.Debugf("AdditionalTradeInfo: %X", ups.AdditionalTradeInfo)
+		//logger.Debugf("self_domain: %X", ups.SelfDomain)
+		//logger.Debugf("mchntid: %X", ups.MchntId)
+		//logger.Debugf("AdditionalTradeInfo: %X", ups.AdditionalTradeInfo)
+		//logger.Debugf("retcd: %s", ups.RetCd)
 	}
 	logger.Debugf("%s", ups.ServiceInputCd)
 	logger.Debugf("%X", ups.TradeSelfDomain)
@@ -107,7 +113,7 @@ func test8() {
 func testDoTrade() {
 	md, hms := getDate()
 	logger.Debugf("md: %s hms: %s", md, hms)
-	//tpdu_header := buildHeader()
+	tpdu_header := buildHeader()
 	d47 := "5049303537030550333039390402303205103030303030323032334B31333937343306063030303031390708334633443033383408083932313020202020"
 	s47, _ := hex.DecodeString(d47)
 
@@ -117,19 +123,22 @@ func testDoTrade() {
 	d64 := "4535304135363443"
 	s64, _ := hex.DecodeString(d64)
 	ps := iso8583.ProtoStruct{
-		TradeCd:             "000000",
-		Txamt:               "000000001000",
-		Syssn:               "000742",
-		CardExpire:          "1712",
-		ServiceInputCd:      "0220",
-		ServiceCondCd:       "00",
-		TrackData2:          "4761340000000019D171210114991787",
-		Tid:                 "00000664",
-		MchntId:             "000000000000666",
+		TradeCd: "000000",
+		Txamt:   "000000010000",
+		Syssn:   "000766",
+		//CardExpire: "1712",
+		CardExpire:     "4912",
+		ServiceInputCd: "022",
+		ServiceCondCd:  "00",
+		//TrackData2:     "4761340000000019D171210114991787",
+		//TrackData2:          "8171999927660000D30121212776340005489",
+		TrackData2:          "6250944000000772D49121213715950523772",
+		Tid:                 "00000001",
+		MchntId:             "013362670110001",
 		TradeSelfDomain:     s47,
 		CurrencyCd:          "156",
 		AdditionalTradeInfo: s57,
-		SelfDomain:          "2200024900050",
+		SelfDomain:          "2201024900050",
 		Mac:                 s64,
 	}
 	b, err := ps.Pack("0200")
@@ -137,7 +146,50 @@ func testDoTrade() {
 		logger.Warnf("pack err: %s", err.Error())
 		return
 	}
-	logger.Debugf("b: %X", b)
+	xb := b[0 : len(b)-8]
+	logger.Debugf("=============xb: %X", xb)
+	sxb := strings.ToTitle(hex.EncodeToString(xb))
+	mak := "2CFEDA51763EC7CE"
+	bmak, _ := hex.DecodeString(mak)
+	mac := safe.GenMac(sxb, bmak)
+	logger.Debugf("=============mac: %s", mac)
+	//mac := "80D11E0E9281EA5F"
+	xb = append(xb, mac[0:8]...)
+	tpdu_header = append(tpdu_header, xb...)
+	blen := uint16(len(tpdu_header))
+	slen := fmt.Sprintf("%04X", blen)
+	logger.Debugf("slen: %s", slen)
+	bsend, _ := hex.DecodeString(slen)
+	logger.Debugf("%X", bsend)
+	bsend = append(bsend, tpdu_header...)
+	logger.Debugf("bcd: %X", bsend)
+
+	network.Mconn, err = network.NewMyconn("116.236.215.18:5811")
+	if err != nil {
+		logger.Warnf("connet %s", err.Error())
+		return
+	}
+	defer network.Mconn.Conn.Close()
+	err = network.Mconn.Write(bsend)
+	if err != nil {
+		logger.Warnf("write %s", err.Error())
+		return
+	}
+	echo, err := network.Mconn.Read()
+	if err != nil {
+		logger.Warnf("read %s", err.Error())
+		return
+	}
+	logger.Debugf("%X", echo)
+	ups := iso8583.ProtoStruct{}
+	msg_type, err := ups.Unpack(echo[11:])
+	if err == nil {
+		logger.Debugf("msg_type: %s v: %v", msg_type, ups)
+		//logger.Debugf("self_domain: %X", ups.SelfDomain)
+		//logger.Debugf("mchntid: %X", ups.MchntId)
+		//logger.Debugf("AdditionalTradeInfo: %X", ups.AdditionalTradeInfo)
+		logger.Debugf("retcd: %s", ups.RetCd)
+	}
 }
 
 func test4() {
@@ -217,7 +269,7 @@ func TestSignedUP() {
 		Tid:        "00000001",
 		MchntId:    "013362670110001",
 		SelfDomain: "00000001003",
-		Syssn:      "000006",
+		Syssn:      "000007",
 		Opcd:       "003",
 	}
 	b, err := ps.Pack("0800")
@@ -261,9 +313,54 @@ func TestSignedUP() {
 	}
 }
 
-func TestGetTmk(rid []byte, index []byte, key []byte, cv []byte) {
+func TestTmkEffect() {
 	tpdu_header := buildHeader()
+	ps := iso8583.ProtoStruct{
+		Tid:        "00000001",
+		MchntId:    "013362670110001",
+		SelfDomain: "00000002351",
+	}
+	b, err := ps.Pack("0800")
+	if err != nil {
+		logger.Warnf("pack err: %s", err.Error())
+	}
+	tpdu_header = append(tpdu_header, b...)
+	blen := uint16(len(tpdu_header))
+	slen := fmt.Sprintf("%04X", blen)
+	logger.Debugf("slen: %s", slen)
+	bsend, _ := hex.DecodeString(slen)
+	logger.Debugf("%X", bsend)
+	bsend = append(bsend, tpdu_header...)
+	logger.Debugf("bcd: %X", bsend)
 
+	network.Mconn, err = network.NewMyconn("116.236.215.18:5811")
+	if err != nil {
+		logger.Warnf("connet %s", err.Error())
+		return
+	}
+	defer network.Mconn.Conn.Close()
+	err = network.Mconn.Write(bsend)
+	if err != nil {
+		logger.Warnf("write %s", err.Error())
+		return
+	}
+	echo, err := network.Mconn.Read()
+	if err != nil {
+		logger.Warnf("read %s", err.Error())
+		return
+	}
+	logger.Debugf("%X", echo)
+
+	ups := iso8583.ProtoStruct{}
+	msg_type, err := ups.Unpack(echo[11:])
+	if err == nil {
+		logger.Debugf("=======msg_type: %s, retcd: %s", msg_type, ups.RetCd)
+	}
+}
+
+func TestGetTmk(rid []byte, index []byte, key []byte, cv []byte) {
+	defer network.Mconn.Conn.Close()
+	tpdu_header := buildHeader()
 	tlv1 := make(tlv.Tlv)
 	tag_9f06 := 0x9F06
 	tlv1[tag_9f06] = rid
@@ -344,8 +441,6 @@ func TestGetRsaPubkey() {
 	logger.Debugf("md: %s hms: %s", md, hms)
 	tpdu_header := buildHeader()
 	ps := iso8583.ProtoStruct{
-		//CardDatetime: hms,
-		//CardDate:     md,
 		Tid:        "00000001",
 		MchntId:    "013362670110001",
 		SelfDomain: "00000002352",
@@ -354,31 +449,16 @@ func TestGetRsaPubkey() {
 	if err != nil {
 		logger.Warnf("pack err: %s", err.Error())
 	}
-
-	/*ups := iso8583.ProtoStruct{}
-	msg_type, err := ups.Unpack(b)
-	if err == nil {
-		logger.Debugf("msg_type: %s v: %v", msg_type, ups)
-	}*/
-
-	//logger.Debugf("%X", b)
-	//sb := hex.EncodeToString(b)
-	//logger.Debugf("%s", sb)
-
 	tpdu_header = append(tpdu_header, b...)
 	blen := uint16(len(tpdu_header))
 	xlen := fmt.Sprintf("%x", blen)
 	logger.Debugf("blen: %x", xlen)
 
-	//bsend := make([]byte, 2)
 	slen := fmt.Sprintf("%04X", blen)
 	logger.Debugf("slen: %s", slen)
 	bsend, _ := hex.DecodeString(slen)
-	//binary.BigEndian.PutUint16(bsend, blen)
 	logger.Debugf("%X", bsend)
 	bsend = append(bsend, tpdu_header...)
-
-	//bcd := hex.EncodeToString(bsend)
 	logger.Debugf("bcd: %X", bsend)
 
 	err = network.Mconn.Write(bsend)
@@ -396,13 +476,13 @@ func TestGetRsaPubkey() {
 	ups := iso8583.ProtoStruct{}
 	msg_type, err := ups.Unpack(echo[11:])
 	if err == nil {
-		//logger.Debugf("msg_type: %s v: %v", msg_type, ups)
 		logger.Debugf("msg_type: %s, tparam: %X retcd: %s", msg_type, ups.TParam, ups.RetCd)
+	} else {
+		return
 	}
 	tlv := make(tlv.Tlv)
 	err = tlv.DecodeTlv([]byte(ups.TParam))
 	if err == nil {
-		//logger.Debugf("tlv: %v", tlv)
 		tag_9f06 := 0x9F06
 		logger.Debugf("9F06: %X", tlv[tag_9f06])
 		tag_9f22 := 0x9F22
@@ -412,21 +492,12 @@ func TestGetRsaPubkey() {
 		tag_df02 := 0xDF02
 		logger.Debugf("------DF02: %X", tlv[tag_df02])
 
-		/*for k, v := range tlv {
-			logger.Debugf("k: %X", k)
-			logger.Debugf("v: %X", v)
-		}*/
 	}
 
-	//key, _ := hex.DecodeString("79136CDE3F9EE18C893450C5BF4DD63DA4FF7D7279828212C9647F5F9F7029BECA06E953EB19F1F80DB503877181523BD9EABA879E29AE8CE96EFE65FF6567C9BE4B6F2F9AC4D40DF803AC998E5112E9AA4E68D0669A279679C5FD123C2D6012ACFF5DE69F18FB03A7D9EE62B0388FDD4134F91115A140520907190B66A07FC4")
-	//cv, _ := hex.DecodeString("C12FCBFA")
-	//key, _ := hex.DecodeString("0E9AE93364D0D3799C1716E94946C4B86BAE5D3570323E87453B5B4F8FCB71117DE841A243755AA71A575CCC2FAB30DA64F5E9B102607015D02233CA217E14F608BB7A195EEF468CFF902CF3F15C05F662F1F6F6912124FCF8F3E1F85BB74322D6A1673D4E926E8902A5BF6DBAFE51608264940CB291BCD0FB2695C2182C010F")
-	//cv, _ := hex.DecodeString("77EFD094")
-
-	key, _ := hex.DecodeString("C2DC0AF0464A2F6E08BE54A11FF92A47B0418BE42DDE1FED55F6976951C9299E886EDC97D39AF1643C44CA69E13190ED847C8E4D57D2EC07936EB87D6C6453CE782E09F9362748ED99470C27001D3FB548FC23AF8D4A8CF12960639741F6AAADC6A7AB3311873108CD972538EC907C954713F0EB5202802A824D79D1C5628EB6")
-	//key, _ := hex.DecodeString("52E7CED136BF4D4F4E8729D503D06F95DF6DE4087D4EB86B76635B9B7548E2CA4F5EFEC58344E17E8475FD5F0BAB192EE32C5EC5B17025327E8B2354F3E4C530F31339841754C7092C31B7678CEB0C12F9A9B52D42702D5F44FD05102CFBF6EEFA78D9DC143DB8C5451A296981E0C19C483E2358D43F2DD85DFC26D92FD55B5A")
-	//key, _ := hex.DecodeString("709619BB142717E3D509FACC2F13FF8A5753D558CFA30A406B66F5F5CB1C7D595190D62E4ABCD3823096B70F4DB737DB62F89E0A5F655281647FE5E7D900044201189DB6A26F70ADF39BF04B3952AE28C3376EB02754D49A09F39936379A5E6FF9AA956B128291ED18C4B7A0A5B8499901AE4FF53DC15CCE9A5439C93A445B8C")
-	cv, _ := hex.DecodeString("400D1173")
+	//key, _ := hex.DecodeString("1652F2DB435ABC66869F6AC77E0C339AAD971D837705549BB2D3FF3CB231CD9441BC6695217A3B88E1CDAD0E5499CFCA124CFAF13D4F9FC7C8B0FC11BE17773FAFB47D2B69562EBB7C329779C0FF51A612229CC6908B3B7683316D3A4A819724D2071E88405F24F3F7585D69341BD8D9CAAAA664A1F222D203C8401509519DE1")
+	//cv, _ := hex.DecodeString("8D4812F0")
+	key, _ := hex.DecodeString("A9635543AAE790C0B27B6165DB1F57AAD9E998ACB704CD3938C29453F54322D8D1AC2C6C117D0C3FEF4420547957787DA8B2FD40723D92A3ECDFA290D62F24341E4E61CFBD418D36C1F7D6562E3AC8EA6CDFE4B9FE1980BDCA136B8DD761E43BF665C0ACB8DE3EEC98006F0824E0A4E885BC188A3396544E5C6EA75EA63984C5")
+	cv, _ := hex.DecodeString("5113F151")
 	rid := tlv[0x9F06]
 	index := tlv[0x9F22]
 	network.Mconn.Conn.Close()
@@ -472,6 +543,7 @@ func main() {
 		return
 	}
 	//TestGetRsaPubkey()
+	//TestTmkEffect()
 	//TestSignedUP()
 	//parseEx()
 	//test()
